@@ -1,0 +1,35 @@
+name: Package consumption
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_revision:
+        description: Roost source commit to build and check
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-consumption
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: RelayNet/roost
+          ref: ${{ inputs.source_revision }}
+          token: ${{ secrets.ROOST_SOURCE_TOKEN }}
+          persist-credentials: false
+          path: .source
+      - run: rustup show active-toolchain
+        working-directory: .source
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .source
+      - run: ./check.sh .source
