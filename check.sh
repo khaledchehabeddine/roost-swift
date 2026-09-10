@@ -7,7 +7,6 @@ SOURCE="$(cd "${1:?usage: check.sh <roost-source>}" && pwd -P)"
 VERSION="$(awk -F '"' '/^version = / { print $2; exit }' "$SOURCE/Cargo.toml")"
 rm -rf "$ROOT/.candidate"
 cp -R "$SOURCE/target/ios-distribution/roost-swift-v$VERSION" "$ROOT/.candidate"
-cp "$SOURCE/crates/roost-protocol/tests/fixtures/evidence_bundles_v1.json" "$ROOT/Tests/ConsumerTests/"
 DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
 cd "$ROOT/Tests"
 xcodebuild -scheme RoostConsumer-Package \

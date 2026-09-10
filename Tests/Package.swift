@@ -8,7 +8,6 @@ let package = Package(
     targets: [.testTarget(
         name: "ConsumerTests",
         dependencies: [.product(name: "Roost", package: "Roost")],
-        path: "ConsumerTests",
-        resources: [.copy("evidence_bundles_v1.json")]
+        path: "ConsumerTests"
     )]
 )

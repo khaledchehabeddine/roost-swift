@@ -6,7 +6,7 @@ revision intended for release. Prerequisites are in Roost's `docs/building-mobil
 
 The check builds one production package, loads its native library and tests foreign storage
 error recovery, binary Transport Binding conversion, and native signature verification.
-The evidence fixture is copied from the selected source at test time. Rust owns protocol scenarios.
+The package tests keep their signed example locally. Rust owns protocol scenarios.
 
 Run this when bindings or packaging change and before releasing. Publish the checked artifact
 bytes with the matching source revision and version. These checks do not publish anything.

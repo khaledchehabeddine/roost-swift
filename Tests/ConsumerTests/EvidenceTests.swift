@@ -6,23 +6,32 @@ import Foundation
 final class EvidenceTests: XCTestCase {
     func testEvidenceAndReturnedSignaturesUsePlatformVerification() throws {
         let domainKey = DomainSigningKey(
-            identifier: bytes("domain_signing_key.identifier_hex"),
-            verifyingKey: bytes("domain_signing_key.verifying_key_hex"),
+            identifier: Data("test-domain".utf8),
+            verifyingKey: bytes("6556ea860463d074ae046736e1f20f6c78f7a26e31518d1fe7f645150aaa6ad1"),
             status: .trusted
         )
         let verified = try verifyEvidenceBundle(
-            evidenceBundle: bytes("valid.bundle_hex"),
+            evidenceBundle: bytes("01011009090909090909090909090909090909bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce1" +
+                "2205a50221000000004000800000000000000081fca7ffbc3100200000001b636f6e7465787420666f7220616e206162" +
+                "757365207265706f7274007b41657468657253656e64657243657274696669636174652d76323a020b746573742d646f" +
+                "6d61696e0a72656c61792e7465737457f24707f390532aa6598f61c43f3bc2dae984525359cb43fc13db947e93f63e65" +
+                "e8f9b0bc6eae124169f0576f97362d295a8cf5f770b45e14357ce647d33eec00000000655577a0409ed439e636de0aab" +
+                "b9ec5e6c0562d1c2892d1a1679897b3f4d1583bcc4abfc014821307b3bb6e35ec85fe66bca2c2e46ffd56f0bd533e434" +
+                "69659c01f985450640340624ac228577b9d3823baec5f873a09708c2e88d4f83ce4f2660911f7606b89a1b0b0f82399c" +
+                "1137947e6fc1c1bec30553cfdc435559c1d76007741143e40f"),
             expectedProfile: .messageTranscriptVersion1,
             domainSigningKeys: [domainKey],
-            expectedRelayDomain: bytes("expected_relay_domain_hex"),
-            acceptedTimestampSecs: UInt64(value("accepted_timestamp_secs"))!,
-            graceWindowSecs: UInt64(value("grace_window_secs"))!
+            expectedRelayDomain: Data("relay.test".utf8),
+            acceptedTimestampSecs: 1700000000,
+            graceWindowSecs: 0
         )
-        XCTAssertTrue(verified.evidenceIdentity == bytes("valid.decoded.evidence_identity_hex"))
+        XCTAssertTrue(verified.evidenceIdentity == bytes("a7af7974cb7c5c3c770baf1b946f8d7d69a295068d99b78425b1df538a6aa489"))
         XCTAssertTrue(verified.payloadKind == .encryptedText)
-        let certificate = bytes("valid.verification_material.sender_certificate_hex")
+        let certificate = bytes("41657468657253656e64657243657274696669636174652d76323a020b746573742d646f6d61696e0a72656c61792e74" +
+                "65737457f24707f390532aa6598f61c43f3bc2dae984525359cb43fc13db947e93f63e65e8f9b0bc6eae124169f0576f" +
+                "97362d295a8cf5f770b45e14357ce647d33eec00000000655577a0")
         let domain = try Curve25519.Signing.PublicKey(rawRepresentation: domainKey.verifyingKey)
-        XCTAssertTrue(domain.isValidSignature(bytes("valid.verification_material.sender_certificate_signature_hex"), for: certificate))
+        XCTAssertTrue(domain.isValidSignature(bytes("9ed439e636de0aabb9ec5e6c0562d1c2892d1a1679897b3f4d1583bcc4abfc014821307b3bb6e35ec85fe66bca2c2e46ffd56f0bd533e43469659c01f9854506"), for: certificate))
 
         // Rebuild the signed transcript from the fields returned across FFI.
         var padded = Data()
@@ -45,9 +54,10 @@ final class EvidenceTests: XCTestCase {
         let sender = try Curve25519.Signing.PublicKey(
             rawRepresentation: verified.senderIdentityKey.ed25519VerifyingKey
         )
-        XCTAssertTrue(sender.isValidSignature(bytes("valid.verification_material.message_transcript_signature_hex"), for: transcript))
+        let messageSignature = bytes("340624ac228577b9d3823baec5f873a09708c2e88d4f83ce4f2660911f7606b89a1b0b0f82399c1137947e6fc1c1bec30553cfdc435559c1d76007741143e40f")
+        XCTAssertTrue(sender.isValidSignature(messageSignature, for: transcript))
         transcript[transcript.count - 1] ^= 1
-        XCTAssertTrue(!sender.isValidSignature(bytes("valid.verification_material.message_transcript_signature_hex"), for: transcript))
+        XCTAssertTrue(!sender.isValidSignature(messageSignature, for: transcript))
         // Verify fresh signature bytes returned by the generated signer binding.
         let client = Client(storage: InMemorySecureStorage())
         let prepared = try client.identity().prepareGenerateIdentity()
@@ -61,20 +71,7 @@ final class EvidenceTests: XCTestCase {
         XCTAssertTrue(key.isValidSignature(signature, for: authentication))
     }
 
-    private let fixture: [String: Any] = {
-        let url = Bundle.module.url(forResource: "evidence_bundles_v1", withExtension: "json")!
-        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
-    }()
-
-    private func value(_ path: String) -> String {
-        let value = path.split(separator: ".").reduce(fixture as Any) { value, key in
-            (value as! [String: Any])[String(key)]!
-        }
-        return String(describing: value)
-    }
-
-    private func bytes(_ key: String) -> Data {
-        let hex = value(key)
+    private func bytes(_ hex: String) -> Data {
         return Data(stride(from: 0, to: hex.count, by: 2).map { index in
             let start = hex.index(hex.startIndex, offsetBy: index)
             let end = hex.index(start, offsetBy: 2)
