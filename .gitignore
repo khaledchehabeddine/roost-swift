@@ -2,5 +2,5 @@
 .candidate/
 .build/
 Tests/.swiftpm/
-Tests/ConsumerTests/evidence_bundles_v1.json
 .DS_Store
+.release/

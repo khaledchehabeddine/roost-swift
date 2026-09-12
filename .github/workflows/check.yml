@@ -13,23 +13,55 @@ permissions:
 
 concurrency:
   group: package-consumption
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   check:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'KhaledChehabeddine' &&
+      github.triggering_actor == 'KhaledChehabeddine'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Require an exact source revision
+        env:
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+        run: '[[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]]'
       - uses: actions/checkout@v4
         with:
           repository: RelayNet/roost
           ref: ${{ inputs.source_revision }}
-          token: ${{ secrets.ROOST_SOURCE_TOKEN }}
+          token: ${{ secrets.ROOST_READ_TOKEN }}
           persist-credentials: false
           path: .source
+      - name: Verify checked out source and workspace version
+        id: source
+        working-directory: .source
+        env:
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_REVISION" ]]
+          version="$(awk -F '"' '/^version = / { print $2; exit }' Cargo.toml)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - run: rustup show active-toolchain
         working-directory: .source
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: .source
       - run: ./check.sh .source
+      - name: Record the checked files and tool versions
+        run: |
+          cat .release/swift-notes.md >> "$GITHUB_STEP_SUMMARY"
+          shasum -a 256 .release/* >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roost-swift-${{ inputs.source_revision }}-v${{ steps.source.outputs.version }}-${{ github.run_attempt }}
+          path: .release/*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
