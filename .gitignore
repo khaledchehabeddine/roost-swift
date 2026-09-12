@@ -3,3 +3,4 @@
 .build/
 Tests/.swiftpm/
 .DS_Store
+.release/
