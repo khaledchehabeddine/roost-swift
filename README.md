@@ -32,8 +32,8 @@ validation are owned by RelayNet/roost#268.
 Run `./check.sh <roost-checkout>` or dispatch **Package consumption** on `main` with a full source
 SHA. The workflow requires owner initiation, including reruns, and `ROOST_READ_TOKEN` with Contents
 read access to Roost. It builds once, extracts the exact ZIP, and tests native loading, foreign
-storage errors, lost-write recovery, binary Transport Binding conversion, evidence results and
-independent CryptoKit verification on one iPhone simulator. Rust owns protocol scenarios.
+storage errors, lost-write recovery, binary Transport Binding conversion and independent CryptoKit
+verification on one iPhone simulator. Rust owns protocol scenarios.
 `ROOST_IOS_DESTINATION` selects another available simulator.
 
 The workflow uploads the checked ZIP and tool-version notes for 30 days. Run it before publication

@@ -4,18 +4,18 @@ import Foundation
 
 final class TransportBindingTests: XCTestCase {
     func testBinaryBindingAuthenticatesSlices() throws {
-        let alice = Client(storage: InMemorySecureStorage())
-        let bob = Client(storage: InMemorySecureStorage())
-        let aliceIdentity = try alice.identity().prepareGenerateIdentity()
-        try complete(alice, aliceIdentity.operation)
-        let bobIdentity = try bob.identity().prepareGenerateIdentity()
-        try complete(bob, bobIdentity.operation)
-        let signedPrekey = try bob.identity().prepareRotateSignedPrekeyNow()
-        try complete(bob, signedPrekey.operation)
-        let publication = try bob.identity().currentPublicationBundle()
+        let alice = IdentityContext(secureStorage: MemoryStorage())
+        let bob = IdentityContext(secureStorage: MemoryStorage())
+        let aliceIdentity = try alice.prepareIdentityCreation()
+        try complete(alice, aliceIdentity.operationId)
+        let bobIdentity = try bob.prepareIdentityCreation()
+        try complete(bob, bobIdentity.operationId)
+        let signedPrekey = try bob.prepareSignedPrekeyRotation()
+        try complete(bob, signedPrekey.operationId)
+        let publication = try bob.currentPublication()
         let selection = PreKeySelection(
-            signedPrekeyIdentifier: publication.signedPrekey.identifier,
-            oneTimePrekeyIdentifier: nil
+            signedPrekeyId: publication.signedPrekey.id,
+            oneTimePrekeyId: nil
         )
 
         // Data slices can have a nonzero startIndex. Include NUL and high-bit bytes.
@@ -35,7 +35,7 @@ final class TransportBindingTests: XCTestCase {
             transportBinding: TransportBinding(bytes: Data([0x00, 0x7f, 0x80, 0xff])),
             prekeySelection: selection
         )
-        XCTAssertEqual(hint.ed25519VerifyingKey, aliceIdentity.identity.ed25519VerifyingKey)
+        XCTAssertEqual(hint, aliceIdentity.identity)
         do {
             _ = try bob.messaging().initiatorIdentityHint(
                 message: initiation.message,
@@ -43,11 +43,11 @@ final class TransportBindingTests: XCTestCase {
                 prekeySelection: selection
             )
             XCTFail("changed binding byte authenticated")
-        } catch ClientError.AuthenticationFailed { }
+        } catch RoostError.AuthenticationFailed { }
     }
 
-    private func complete(_ client: Client, _ operation: KeyStoreOperation) throws {
-        _ = try client.commitOperation(identifier: operation.identifier)
-        _ = try client.finalizeOperation(identifier: operation.identifier)
+    private func complete(_ context: IdentityContext, _ id: OperationId) throws {
+        try context.reserveOperation(id: id)
+        try context.finalizeOperation(id: id)
     }
 }
