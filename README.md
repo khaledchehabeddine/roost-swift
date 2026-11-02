@@ -1,6 +1,6 @@
 # Roost Swift
 
-Cryptography for private, end-to-end encrypted messaging in Swift apps.
+The cryptographic core for private, end-to-end encrypted messaging in Swift apps.
 
 ## Usage
 
