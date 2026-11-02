@@ -1,19 +1,17 @@
-# roost-swift
+# Roost Swift
 
-The Swift package for [Roost](https://github.com/chirp-org/roost). Roost's release workflow publishes each version here as a tag, so make changes in Roost.
+Cryptography for private, end-to-end encrypted messaging in Swift apps.
 
-## Install
+## Usage
 
-Add the package with the latest release's version:
+Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/chirp-org/roost-swift.git", exact: "X.Y.Z")
+.package(url: "https://github.com/chirp-org/roost-swift.git", exact: "0.16.0")
 ```
 
-Then add `.product(name: "Roost", package: "roost-swift")` to your target's dependencies, and commit `Package.resolved`.
+Add the product to your target's dependencies:
 
-This repository is private. Git checks it out with your usual GitHub credentials, but SwiftPM downloads the binary through the GitHub API, which needs a token that can read the repository. Add the token to `~/.netrc`:
-
-```text
-machine api.github.com login <username> password <token>
+```swift
+.product(name: "Roost", package: "roost-swift")
 ```
