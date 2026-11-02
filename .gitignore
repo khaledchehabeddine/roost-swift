@@ -1,6 +1,0 @@
-.source/
-.candidate/
-.build/
-Tests/.swiftpm/
-.DS_Store
-.release/
