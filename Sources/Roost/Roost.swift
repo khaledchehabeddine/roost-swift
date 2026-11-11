@@ -623,20 +623,20 @@ public protocol ContactsProtocol: AnyObject, Sendable {
     func confirmContactSafetyNumber(contactIdentityKey: IdentityKey, record: Data?, presentedGroupedDecimal: String) throws  -> ContactSafetyNumberConfirmation
     
     /**
-     * Returns the contact each contact state record holds, in the order given.
+     * Returns the contact each contact state record holds, and each record Roost couldn't read.
      *
      * Pass the app's committed records of kind
      * `ProtocolStateKind.contactState`, so views can
-     * refresh after each commit without Roost keeping subscriptions or cursors.
+     * refresh after each commit without Roost keeping subscriptions or cursors. A record Roost
+     * can't read doesn't stop the others from loading. Roost changes nothing for it, so the app
+     * decides whether to keep it, hide it, or ask the user to update. A malformed key, or one
+     * that names another kind of record, fails the whole call instead.
      *
      * - Throws:
-     *   - `RoostError.InvalidData` if a key is malformed, an entry has no bytes, or there are
-     *     more entries than Roost's limit.
-     *   - `RoostError.ProtocolStateFault` if an entry isn't a contact record, or a record is
-     *     malformed or stored under another identity's key.
-     *   - `RoostError.UnsupportedVersion` if a record has an unsupported version.
+     *   - `RoostError.InvalidData` if a key is malformed or names another kind of record, or
+     *     there are more entries than Roost's limit.
      */
-    func contactStates(records: [StateEntry]) throws  -> [ContactState]
+    func contactStates(records: [StateEntry]) throws  -> ContactStates
     
     /**
      * Prepares blocking a contact, given the record the app holds for them or none, and rotates
@@ -845,21 +845,21 @@ open func confirmContactSafetyNumber(contactIdentityKey: IdentityKey, record: Da
 }
     
     /**
-     * Returns the contact each contact state record holds, in the order given.
+     * Returns the contact each contact state record holds, and each record Roost couldn't read.
      *
      * Pass the app's committed records of kind
      * `ProtocolStateKind.contactState`, so views can
-     * refresh after each commit without Roost keeping subscriptions or cursors.
+     * refresh after each commit without Roost keeping subscriptions or cursors. A record Roost
+     * can't read doesn't stop the others from loading. Roost changes nothing for it, so the app
+     * decides whether to keep it, hide it, or ask the user to update. A malformed key, or one
+     * that names another kind of record, fails the whole call instead.
      *
      * - Throws:
-     *   - `RoostError.InvalidData` if a key is malformed, an entry has no bytes, or there are
-     *     more entries than Roost's limit.
-     *   - `RoostError.ProtocolStateFault` if an entry isn't a contact record, or a record is
-     *     malformed or stored under another identity's key.
-     *   - `RoostError.UnsupportedVersion` if a record has an unsupported version.
+     *   - `RoostError.InvalidData` if a key is malformed or names another kind of record, or
+     *     there are more entries than Roost's limit.
      */
-open func contactStates(records: [StateEntry])throws  -> [ContactState]  {
-    return try  FfiConverterSequenceTypeContactState.lift(try rustCallWithError(FfiConverterTypeRoostError_lift) {
+open func contactStates(records: [StateEntry])throws  -> ContactStates  {
+    return try  FfiConverterTypeContactStates_lift(try rustCallWithError(FfiConverterTypeRoostError_lift) {
         uniffiCallStatus in
     uniffi_roost_client_fn_method_contacts_contact_states(
             self.uniffiCloneHandle(),
@@ -4457,6 +4457,154 @@ public func FfiConverterTypeContactState_lower(_ value: ContactState) -> RustBuf
 
 
 /**
+ * A contact state record Roost couldn't read.
+ */
+public struct ContactStateFailure: Equatable, Hashable {
+    /**
+     * The record's name.
+     */
+    public var key: StateKey
+    /**
+     * Why Roost couldn't read the record.
+     */
+    public var kind: ContactStateFailureKind
+    /**
+     * Diagnostic context for logging only.
+     */
+    public var reason: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The record's name.
+         */key: StateKey, 
+        /**
+         * Why Roost couldn't read the record.
+         */kind: ContactStateFailureKind, 
+        /**
+         * Diagnostic context for logging only.
+         */reason: String) {
+        self.key = key
+        self.kind = kind
+        self.reason = reason
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ContactStateFailure: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeContactStateFailure: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ContactStateFailure {
+        return
+            try ContactStateFailure(
+                key: FfiConverterTypeStateKey.read(from: &buf), 
+                kind: FfiConverterTypeContactStateFailureKind.read(from: &buf), 
+                reason: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ContactStateFailure, into buf: inout [UInt8]) {
+        FfiConverterTypeStateKey.write(value.key, into: &buf)
+        FfiConverterTypeContactStateFailureKind.write(value.kind, into: &buf)
+        FfiConverterString.write(value.reason, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStateFailure_lift(_ buf: RustBuffer) throws -> ContactStateFailure {
+    return try FfiConverterTypeContactStateFailure.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStateFailure_lower(_ value: ContactStateFailure) -> RustBuffer {
+    return FfiConverterTypeContactStateFailure.lower(value)
+}
+
+
+/**
+ * The contacts `Contacts.contactStates` read, and the records it couldn't.
+ */
+public struct ContactStates: Equatable, Hashable {
+    /**
+     * The contact each readable record holds, in the order given.
+     */
+    public var contacts: [ContactState]
+    /**
+     * Each record Roost couldn't read, in the order given.
+     */
+    public var failures: [ContactStateFailure]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The contact each readable record holds, in the order given.
+         */contacts: [ContactState], 
+        /**
+         * Each record Roost couldn't read, in the order given.
+         */failures: [ContactStateFailure]) {
+        self.contacts = contacts
+        self.failures = failures
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ContactStates: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeContactStates: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ContactStates {
+        return
+            try ContactStates(
+                contacts: FfiConverterSequenceTypeContactState.read(from: &buf), 
+                failures: FfiConverterSequenceTypeContactStateFailure.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ContactStates, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeContactState.write(value.contacts, into: &buf)
+        FfiConverterSequenceTypeContactStateFailure.write(value.failures, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStates_lift(_ buf: RustBuffer) throws -> ContactStates {
+    return try FfiConverterTypeContactStates.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStates_lower(_ value: ContactStates) -> RustBuffer {
+    return FfiConverterTypeContactStates.lower(value)
+}
+
+
+/**
  * What a delivery check found.
  */
 public struct DeliveryCheckResult: Equatable, Hashable {
@@ -6327,6 +6475,8 @@ public struct PublicDiscoveryKey: Equatable, Hashable {
     public var epoch: UInt32
     /**
      * Creation time in Unix milliseconds, always a whole number of seconds.
+     *
+     * After the device clock moves back, this can be later than now.
      */
     public var createdAtMillis: UInt64
 
@@ -6348,6 +6498,8 @@ public struct PublicDiscoveryKey: Equatable, Hashable {
          */epoch: UInt32, 
         /**
          * Creation time in Unix milliseconds, always a whole number of seconds.
+         *
+         * After the device clock moves back, this can be later than now.
          */createdAtMillis: UInt64) {
         self.publicKey = publicKey
         self.verifyingKey = verifyingKey
@@ -8015,6 +8167,91 @@ public func FfiConverterTypeContactSafetyNumberConfirmation_lift(_ buf: RustBuff
 #endif
 public func FfiConverterTypeContactSafetyNumberConfirmation_lower(_ value: ContactSafetyNumberConfirmation) -> RustBuffer {
     return FfiConverterTypeContactSafetyNumberConfirmation.lower(value)
+}
+
+
+
+/**
+ * Why Roost couldn't read a contact state record.
+ */
+
+public enum ContactStateFailureKind: Equatable, Hashable {
+    
+    /**
+     * The record is damaged or stored under another identity's key.
+     */
+    case damaged
+    /**
+     * The record uses a format this version of Roost doesn't read, such as one from a newer app.
+     */
+    case newerFormat
+    /**
+     * The entry has no record, or the record holds a value the app can't represent.
+     */
+    case invalid
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ContactStateFailureKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeContactStateFailureKind: FfiConverterRustBuffer {
+    typealias SwiftType = ContactStateFailureKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ContactStateFailureKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .damaged
+        
+        case 2: return .newerFormat
+        
+        case 3: return .invalid
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ContactStateFailureKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .damaged:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .newerFormat:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .invalid:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStateFailureKind_lift(_ buf: RustBuffer) throws -> ContactStateFailureKind {
+    return try FfiConverterTypeContactStateFailureKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeContactStateFailureKind_lower(_ value: ContactStateFailureKind) -> RustBuffer {
+    return FfiConverterTypeContactStateFailureKind.lower(value)
 }
 
 
@@ -10016,6 +10253,31 @@ fileprivate struct FfiConverterSequenceTypeContactState: FfiConverterRustBuffer 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeContactStateFailure: FfiConverterRustBuffer {
+    typealias SwiftType = [ContactStateFailure]
+
+    public static func write(_ value: [ContactStateFailure], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeContactStateFailure.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ContactStateFailure] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ContactStateFailure]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeContactStateFailure.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeDomainSigningKey: FfiConverterRustBuffer {
     typealias SwiftType = [DomainSigningKey]
 
@@ -10410,7 +10672,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_roost_client_checksum_method_contacts_confirm_contact_safety_number() != 28652) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_roost_client_checksum_method_contacts_contact_states() != 58426) {
+    if (uniffi_roost_client_checksum_method_contacts_contact_states() != 16316) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_roost_client_checksum_method_contacts_prepare_block_contact() != 30700) {
