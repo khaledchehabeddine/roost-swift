@@ -5970,9 +5970,17 @@ public struct PreKeyBundle: Equatable, Hashable {
      */
     public var identity: Identity
     /**
-     * The contact's discovery key, both binding signatures, and signed prekey.
+     * The contact's discovery key.
      */
-    public var publication: PublicationBundle
+    public var discoveryKey: PublicDiscoveryKey
+    /**
+     * `discoveryKey`'s signature over the contact's identity. Always 64 bytes.
+     */
+    public var discoveryToIdentity: Data
+    /**
+     * The contact's signed prekey.
+     */
+    public var signedPrekey: PublicSignedPreKey
     /**
      * The one-time prekey the relay handed out, absent once the contact's pool ran out.
      */
@@ -5985,13 +5993,21 @@ public struct PreKeyBundle: Equatable, Hashable {
          * The contact's identity.
          */identity: Identity, 
         /**
-         * The contact's discovery key, both binding signatures, and signed prekey.
-         */publication: PublicationBundle, 
+         * The contact's discovery key.
+         */discoveryKey: PublicDiscoveryKey, 
+        /**
+         * `discoveryKey`'s signature over the contact's identity. Always 64 bytes.
+         */discoveryToIdentity: Data, 
+        /**
+         * The contact's signed prekey.
+         */signedPrekey: PublicSignedPreKey, 
         /**
          * The one-time prekey the relay handed out, absent once the contact's pool ran out.
          */oneTimePrekey: PublicOneTimePreKey?) {
         self.identity = identity
-        self.publication = publication
+        self.discoveryKey = discoveryKey
+        self.discoveryToIdentity = discoveryToIdentity
+        self.signedPrekey = signedPrekey
         self.oneTimePrekey = oneTimePrekey
     }
 
@@ -6012,14 +6028,18 @@ public struct FfiConverterTypePreKeyBundle: FfiConverterRustBuffer {
         return
             try PreKeyBundle(
                 identity: FfiConverterTypeIdentity.read(from: &buf), 
-                publication: FfiConverterTypePublicationBundle.read(from: &buf), 
+                discoveryKey: FfiConverterTypePublicDiscoveryKey.read(from: &buf), 
+                discoveryToIdentity: FfiConverterData.read(from: &buf), 
+                signedPrekey: FfiConverterTypePublicSignedPreKey.read(from: &buf), 
                 oneTimePrekey: FfiConverterOptionTypePublicOneTimePreKey.read(from: &buf)
         )
     }
 
     public static func write(_ value: PreKeyBundle, into buf: inout [UInt8]) {
         FfiConverterTypeIdentity.write(value.identity, into: &buf)
-        FfiConverterTypePublicationBundle.write(value.publication, into: &buf)
+        FfiConverterTypePublicDiscoveryKey.write(value.discoveryKey, into: &buf)
+        FfiConverterData.write(value.discoveryToIdentity, into: &buf)
+        FfiConverterTypePublicSignedPreKey.write(value.signedPrekey, into: &buf)
         FfiConverterOptionTypePublicOneTimePreKey.write(value.oneTimePrekey, into: &buf)
     }
 }
